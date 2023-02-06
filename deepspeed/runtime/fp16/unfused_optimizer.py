@@ -53,19 +53,19 @@ class FP16_UnfusedOptimizer(DeepSpeedOptimizer):
             #fp16 weights that represents the actual model weights
             self.fp16_groups.append(param_group['params'])
 
-            #creating a fp32 copy of the weights that will be updated first then
-            #copied to fp16 weights
-            fp32_group = [p.clone().float().detach() for p in param_group['params']]
+        #     #creating a fp32 copy of the weights that will be updated first then
+        #     #copied to fp16 weights
+        #     fp32_group = [p.clone().float().detach() for p in param_group['params']]
 
-            #in case the internal optimizer needs it
-            for p in fp32_group:
-                p.requires_grad = True
+        #     #in case the internal optimizer needs it
+        #     for p in fp32_group:
+        #         p.requires_grad = True
 
             #setting the param groups in the optimizer to point to fp32
             #note these are not the weights used by the model
             #the model uses the fp16 version that we added to fp16_group
-            self.fp32_groups.append(fp32_group)
-            param_group['params'] = self.fp32_groups[i]
+            # self.fp32_groups.append(fp32_group)
+            # param_group['params'] = self.fp32_groups[i]
 
         # we may have a way of fusing dynamic scale. Do not support for now
         if dynamic_loss_scale:
@@ -232,28 +232,30 @@ class FP16_UnfusedOptimizer(DeepSpeedOptimizer):
                 norm_group_value = get_weight_norm(grads_for_norm, mpu=self.mpu)
             norm_groups.append(norm_group_value)
 
-            # copying gradients to fp32 to wor  k with fp32 parameters
-            for fp32_param, fp16_param in zip(self.fp32_groups[i], self.fp16_groups[i]):
-                if fp16_param.grad is None:
-                    fp32_param.grad = torch.zeros(fp16_param.size(),
-                                                  dtype=fp32_param.dtype,
-                                                  device=fp32_param.device)
-                else:
-                    fp32_param.grad = fp16_param.grad.to(fp32_param.dtype)
+            # copying gradients to fp32 to work with fp32 parameters
+            # for fp32_param, fp16_param in zip(self.fp32_groups[i], self.fp16_groups[i]):
+            #     if fp16_param.grad is None:
+            #         fp32_param.grad = torch.zeros(fp16_param.size(),
+            #                                       dtype=fp32_param.dtype,
+            #                                       device=fp32_param.device)
+            #     else:
+            #         fp32_param.grad = fp16_param.grad.to(fp32_param.dtype)
 
-        self._global_grad_norm = get_global_norm(norm_list=norm_groups)
-        self.unscale_and_clip_grads(self._global_grad_norm)
+        # import pdb;pdb.set_trace()
+        # self._global_grad_norm = get_global_norm(norm_list=norm_groups)
+        # self.unscale_and_clip_grads(self._global_grad_norm)
 
-        self.optimizer.step()
+        self.optimizer.step(grad_norms = norm_groups, scale = self.cur_scale,
+                            clip_grad = self.clip_grad)
 
-        for fp32_group, fp16_group in zip(self.fp32_groups, self.fp16_groups):
-            for idx, (fp32_param, fp16_param) in enumerate(zip(fp32_group, fp16_group)):
+        # for fp32_group, fp16_group in zip(self.fp32_groups, self.fp16_groups):
+        #     for idx, (fp32_param, fp16_param) in enumerate(zip(fp32_group, fp16_group)):
 
-                #remove the fp32 grad
-                fp32_param.grad = None
+        #         #remove the fp32 grad
+        #         fp32_param.grad = None
 
-                #copy data from fp32 to fp16
-                fp16_param.data.copy_(fp32_param.data)
+        #         #copy data from fp32 to fp16
+        #         fp16_param.data.copy_(fp32_param.data)
 
         return self.overflow
 
