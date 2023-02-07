@@ -359,8 +359,7 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
             # from the origin params of the model.
             if not fp16_master_weights_and_gradients:
                 self.single_partition_of_fp32_groups.append(
-                    self.parallel_partitioned_bit16_groups[i][partition_id].to(
-                        self.device).clone().float().detach())
+                    self.parallel_partitioned_bit16_groups[i][partition_id])
             else:
                 self.single_partition_of_fp32_groups.append(
                     self.parallel_partitioned_bit16_groups[i][partition_id].to(
@@ -369,8 +368,8 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
             # Set local optimizer to have flat params of its own partition.
             # After this, the local optimizer will only contain its own partition of params.
             # In that case, the local optimizer only saves the states(momentum, variance, etc.) related to its partition's params(zero stage1).
-            self.single_partition_of_fp32_groups[
-                i].requires_grad = True  # keep this in case internal optimizer uses it
+            # self.single_partition_of_fp32_groups[
+            #     i].requires_grad = True  # keep this in case internal optimizer uses it
             param_group['params'] = [self.single_partition_of_fp32_groups[i]]
 
             partition_size = len(self.bit16_groups_flat[i]) / dist.get_world_size(
@@ -1814,11 +1813,9 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
                         group=self.real_dp_process_group[i]) - 1:
                     single_grad_partition = self.flatten_dense_tensors_aligned(
                         self.averaged_gradients[i],
-                        int(self.partition_size[i])).to(
-                            self.single_partition_of_fp32_groups[i].dtype)
+                        int(self.partition_size[i]))
                 else:
-                    single_grad_partition = self.flatten(self.averaged_gradients[i]).to(
-                        self.single_partition_of_fp32_groups[i].dtype)
+                    single_grad_partition = self.flatten(self.averaged_gradients[i])
                 assert single_grad_partition.numel() == self.partition_size[i], \
                     "averaged gradients have different number of elements that partition size {} {} {} {}".format(
                         single_grad_partition.numel(), self.partition_size[i], i, partition_id)
@@ -1829,8 +1826,8 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
 
                 self.averaged_gradients[i] = None
 
-                self.unscale_and_clip_grads([single_grad_partition],
-                                            scaled_global_grad_norm)
+                # self.unscale_and_clip_grads([single_grad_partition],
+                #                             scaled_global_grad_norm)
                 self.stop_timers([OPTIMIZER_GRADIENTS])
 
                 # Step 3:- run the optimizer if no offloading

@@ -777,11 +777,10 @@ class DeepSpeedZeroOptimizer_Stage3(ZeROOptimizer):
                     self.fp32_partitioned_groups_flat.append(unpinned_fp32_buffer)
                 else:
                     self.fp32_partitioned_groups_flat.append(
-                        self.fp16_partitioned_groups_flat[i].to(
-                            self.device).clone().float().detach())
+                        self.fp16_partitioned_groups_flat[i])
 
-            self.fp32_partitioned_groups_flat[
-                i].requires_grad = True  # keep this in case internal optimizer uses it
+            # self.fp32_partitioned_groups_flat[
+            #     i].requires_grad = True  # keep this in case internal optimizer uses it
 
         if len(swappable_fp32_tensors) > 0:
             self.optimizer_swapper.initialize_parameters(
